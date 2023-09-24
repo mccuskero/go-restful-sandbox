@@ -24,15 +24,17 @@ type MongoDbConnection struct {
 	uri string
 	log *log.NormalLogger
 	client *mongo.Client
+	timeout time.Duration
+	dbConnCancelFunc context.CancelFunc
 }
 
-func NewMongoDbConnection(uri string, log *log.NormalLogger) *MongoDbConnection {
+func NewMongoDbConnection(uri string, timeout time.Duration, log *log.NormalLogger) *MongoDbConnection {
 
 	if uri == "" {
 		uri = "mongodb://localhost:27017"
 	}
-	// use context to release API sources after 10 seconds
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	// if the operations does not finish within 10 seconds, then it will timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	// Use the SetServerAPIOptions() method to set the Stable API version to 1
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
@@ -44,6 +46,8 @@ func NewMongoDbConnection(uri string, log *log.NormalLogger) *MongoDbConnection 
 		opts: opts,
 		uri: uri,
 		log: log,
+		timeout: timeout,
+		dbConnCancelFunc: cancel,
 	}
 }
 
@@ -88,7 +92,10 @@ func (db* MongoDbConnection) Disconnect() error {
 		return errors.New("db client has not be initialized")
 	}
 
-	db.client.Disconnect(db.ctx) 
+	err := db.client.Disconnect(db.ctx)
+	if err != nil {
+		return errors.New("db client could not disconnect: " + err.Error())
+	}
 
 	return nil
 }

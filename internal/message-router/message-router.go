@@ -1,38 +1,62 @@
 package messagerouter
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/mccuskero/go-restful-sandbox/internal/message"
+	"github.com/mccuskero/go-restful-sandbox/internal/mongodb"
 )
 
 
-var testMessages []*message.Message
+type MessageRouter struct {
+	dbConn       *mongodb.MongoDbConnection
+	router    *gin.Engine
+	testMode     bool
+	testMessages []*message.Message	
+}
 
 func initializeTestMessages() []*message.Message {
 	return message.CreateMessages(100)
 }
 
-func InitializeAndRun() {
-	// TODO: create a MessageRouter struct, and NewMessageRouter, passing in logger
-	// make an Initialize, and Run as method sets
+func NewMessageRouter(dbConn *mongodb.MongoDbConnection, testMode bool) *MessageRouter {
 
 	router := gin.Default()
-	testMessages = initializeTestMessages()
+	testMessages := initializeTestMessages()
 
-	router.GET("/messages", getMessages)
-	router.POST("/postMessage", postMessage)
+	messageRouter := &MessageRouter{
+		dbConn: dbConn,
+		router: router,
+		testMessages: testMessages,
+		testMode: testMode,
+	}
+	
+	return messageRouter
+} 
 
-	router.Run()
+func (mr* MessageRouter) InitializeRoutes() {
+	mr.router.GET("/messages", mr.getMessages)
+	mr.router.POST("/postMessage", mr.postMessage)
 }
 
-func getMessages(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, testMessages)
+func (mr* MessageRouter) Run() error {
+
+	if err := mr.router.Run(); err != nil {
+		return errors.New("Could not start message router: " + err.Error())
+	}
+
+	return nil
+} 
+
+
+func (mr* MessageRouter) getMessages(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, mr.testMessages)
 }
 
-func postMessage(c *gin.Context) {
+func (mr* MessageRouter) postMessage(c *gin.Context) {
 	var newMessage message.Message
 
 	// bind the received JSON to Message
@@ -42,7 +66,7 @@ func postMessage(c *gin.Context) {
 	}
 
 	// add new Messages to messages
-	testMessages = append(testMessages, &newMessage)
+	mr.testMessages = append(mr.testMessages, &newMessage)
 	c.IndentedJSON(http.StatusCreated, newMessage)
 }
 

@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"testing"
+	"time"
 
 	"github.com/mccuskero/go-restful-sandbox/pkg/log"
 )
@@ -9,7 +10,7 @@ import (
 func TestMongoConnection(t *testing.T) {
 	logger := log.NewNormalLogger()
 
-	conn := NewMongoDbConnection("mongodb://localhost:27017", logger)
+	conn := NewMongoDbConnection("mongodb://localhost:27017", 10*time.Second, logger)
 
 	err := conn.Connect()
 
@@ -17,7 +18,11 @@ func TestMongoConnection(t *testing.T) {
 		t.Error("Could not connect to db")	
 	}
 
-	conn.Ping()
+	if err := conn.Ping(); err != nil {
+		t.Error("Could not ping db")
+	}
 
-	conn.Disconnect()
+	if err := conn.Disconnect(); err != nil {
+		t.Error("Could not disconnect from db")
+	}
 }
